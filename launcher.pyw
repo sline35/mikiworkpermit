@@ -2,13 +2,22 @@ import os
 import sys
 import zipfile
 import urllib.request
+import urllib.parse
 import subprocess
 from tkinter import messagebox, Toplevel, Label, font
 import tkinter as tk 
 import time
 import threading
 
-MASTER_ZIP_URL = "https://github.com/sline35/mikiworkpermit/raw/refs/heads/main/miki.zip" 
+FILES_TO_DOWNLOAD = [
+    ("https://github.com/sline35/mikiworkpermit/raw/refs/heads/main/SK BM.pdf", "docs/SK BM.pdf"),
+    ("https://github.com/sline35/mikiworkpermit/raw/refs/heads/main/addition.pdf", "docs/addition.pdf"),
+    ("https://github.com/sline35/mikiworkpermit/raw/refs/heads/main/preview_temp_output.pdf", "preview_temp_output.pdf"),
+    ("https://github.com/sline35/mikiworkpermit/raw/refs/heads/main/main_app.pyw", "main_app.pyw"),
+    ("https://github.com/sline35/mikiworkpermit/raw/refs/heads/main/launcher.pyw", "launcher.pyw"),
+    ("https://github.com/sline35/mikiworkpermit/raw/refs/heads/main/jsa_processor.py", "jsa_processor.py"),
+]
+
 MAIN_APP_NAME = "main_app.pyw"
 
 def create_loading_window():
@@ -43,24 +52,30 @@ def download_and_run(root, loading_win):
     else:
         script_dir = os.path.dirname(os.path.abspath(__file__))
         
-    temp_zip_path = os.path.join(script_dir, "master_update.zip")
+    main_app_dir = os.path.join(script_dir, "miki")
     
+    if not os.path.exists(main_app_dir):
+        os.makedirs(main_app_dir)
+        
     loading_win.update()
 
     try:
-        req = urllib.request.Request(
-            MASTER_ZIP_URL, 
-            headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
-        )
-        
-        with urllib.request.urlopen(req, timeout=30) as response, open(temp_zip_path, 'wb') as out_file:
-            out_file.write(response.read())
+        for url, relative_path in FILES_TO_DOWNLOAD:
+            safe_url = urllib.parse.quote(url, safe=':/?&=')
+            
+            target_file_path = os.path.join(main_app_dir, relative_path)
+            
+            target_sub_dir = os.path.dirname(target_file_path)
+            if not os.path.exists(target_sub_dir):
+                os.makedirs(target_sub_dir)
 
-        with zipfile.ZipFile(temp_zip_path, 'r') as zip_ref:
-            zip_ref.extractall(script_dir) 
-
-        if os.path.exists(temp_zip_path):
-            os.remove(temp_zip_path)
+            req = urllib.request.Request(
+                safe_url, 
+                headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+            )
+            
+            with urllib.request.urlopen(req, timeout=30) as response, open(target_file_path, 'wb') as out_file:
+                out_file.write(response.read())
 
         loading_win.destroy()
         root.destroy()
@@ -74,8 +89,8 @@ def download_and_run(root, loading_win):
         return
 
     try:
-        main_app_path = os.path.join(script_dir, MAIN_APP_NAME)
-        subprocess.Popen([sys.executable, main_app_path], cwd=script_dir) 
+        main_app_path = os.path.join(main_app_dir, MAIN_APP_NAME)
+        subprocess.Popen([sys.executable, main_app_path], cwd=main_app_dir)
     except Exception as e:
         messagebox.showerror("Launch Error", f"Main app failed to run: {e}")
         sys.exit(1)
