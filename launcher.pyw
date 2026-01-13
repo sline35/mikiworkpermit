@@ -8,13 +8,12 @@ from tkinter import messagebox, Toplevel, Label, font
 import tkinter as tk 
 import time
 import threading
-#테스트
+
 FILES_TO_DOWNLOAD = [
     ("https://github.com/sline35/mikiworkpermit/raw/refs/heads/main/SK BM.pdf", "docs/SK BM.pdf"),
     ("https://github.com/sline35/mikiworkpermit/raw/refs/heads/main/addition.pdf", "docs/addition.pdf"),
     ("https://github.com/sline35/mikiworkpermit/raw/refs/heads/main/preview_temp_output.pdf", "preview_temp_output.pdf"),
     ("https://github.com/sline35/mikiworkpermit/raw/refs/heads/main/main_app.pyw", "main_app.pyw"),
-    ("https://github.com/sline35/mikiworkpermit/raw/refs/heads/main/launcher.pyw", "launcher.pyw"),
     ("https://github.com/sline35/mikiworkpermit/raw/refs/heads/main/jsa_processor.py", "jsa_processor.py"),
 ]
 
@@ -103,4 +102,5 @@ def run_launcher():
 
 if __name__ == "__main__":
     run_launcher()
+
 
