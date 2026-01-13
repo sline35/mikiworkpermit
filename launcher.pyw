@@ -7,12 +7,12 @@ from tkinter import messagebox, Toplevel, Label, font
 import tkinter as tk 
 
 FILES_TO_DOWNLOAD = [
-    ("https://github.com/sline35/mikiworkpermit/raw/refs/heads/main/SK%20BM.pdf", "docs/SK BM.pdf"),
-    ("https://github.com/sline35/mikiworkpermit/raw/refs/heads/main/addition.pdf", "docs/addition.pdf"),
-    ("https://github.com/sline35/mikiworkpermit/raw/refs/heads/main/preview_temp_output.pdf", "preview_temp_output.pdf"),
+    ("https://github.com/sline35/mikiworkpermit/raw/refs/heads/main/SK BM.pdf", "miki/docs/SK BM.pdf"),
+    ("https://github.com/sline35/mikiworkpermit/raw/refs/heads/main/addition.pdf", "miki/docs/addition.pdf"),
+    ("https://github.com/sline35/mikiworkpermit/raw/refs/heads/main/preview_temp_output.pdf", "miki/preview_temp_output.pdf"),
     ("https://github.com/sline35/mikiworkpermit/raw/refs/heads/main/main_app.pyw", "miki/main_app.pyw"),
     ("https://github.com/sline35/mikiworkpermit/raw/refs/heads/main/launcher.pyw", "launcher.pyw"),
-    ("https://github.com/sline35/mikiworkpermit/raw/refs/heads/main/jsa_processor.py", "jsa_processor.py"),
+    ("https://github.com/sline35/mikiworkpermit/raw/refs/heads/main/jsa_processor.py", "miki/jsa_processor.py"),
 ]
 
 MAIN_APP_NAME = "main_app.pyw"
