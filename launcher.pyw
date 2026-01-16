@@ -10,7 +10,6 @@ FILES_TO_DOWNLOAD = [
     ("https://github.com/sline35/mikiworkpermit/raw/refs/heads/main/SK BM.pdf", "miki/docs/SK BM.pdf"),
     ("https://github.com/sline35/mikiworkpermit/raw/refs/heads/main/addition.pdf", "miki/docs/addition.pdf"),
     ("https://github.com/sline35/mikiworkpermit/raw/refs/heads/main/main_app.pyw", "miki/main_app.pyw"),
-    ("https://github.com/sline35/mikiworkpermit/raw/refs/heads/main/launcher.pyw", "launcher.pyw"),
     ("https://github.com/sline35/mikiworkpermit/raw/refs/heads/main/jsa_processor.py", "miki/jsa_processor.py"),
 ]
 
@@ -93,4 +92,5 @@ def run_launcher():
 
 if __name__ == "__main__":
     run_launcher()
+
 
