@@ -69,6 +69,12 @@ class JSAInputGUI:
     
         self.model_list = GEMINI_MODEL_LIST
         self.jsa_json = None
+
+        # --- [NEW] In-memory PDF preview storage + local preview server state ---
+        self.current_pdf_bytes = None
+        self._preview_server_started = False
+        self._preview_port = 8765
+        # ----------------------------------------------------------------------
         
         os.makedirs(self.temp_dir, exist_ok=True)
    
@@ -290,6 +296,61 @@ class JSAInputGUI:
         if self.managers_list:
             
             self.responsible_person_manager_combobox.set(self.managers_list[0])
+
+    # --- [NEW] Local in-memory PDF preview server helpers ---
+    def _ensure_preview_server(self):
+        if self._preview_server_started:
+            return
+
+        from http.server import HTTPServer, BaseHTTPRequestHandler
+
+        gui = self
+
+        class _MemPDFHandler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                path = self.path.split('?', 1)[0]
+                if path != "/preview.pdf":
+                    self.send_response(404)
+                    self.end_headers()
+                    return
+
+                data = gui.current_pdf_bytes or b""
+                if not data:
+                    self.send_response(204)
+                    self.end_headers()
+                    return
+
+                self.send_response(200)
+                self.send_header("Content-Type", "application/pdf")
+                self.send_header("Content-Length", str(len(data)))
+                self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+                self.send_header("Pragma", "no-cache")
+                self.end_headers()
+                self.wfile.write(data)
+
+            def log_message(self, format, *args):
+                return
+
+        def _run():
+            httpd = HTTPServer(("127.0.0.1", self._preview_port), _MemPDFHandler)
+            httpd.serve_forever()
+
+        threading.Thread(target=_run, daemon=True).start()
+        self._preview_server_started = True
+
+    def _open_pdf_preview_in_browser(self):
+        import time
+        url = f"http://127.0.0.1:{self._preview_port}/preview.pdf?ts={int(time.time()*1000)}"
+        try:
+            if sys.platform == "win32":
+                os.system(f'start "" "{url}"')
+            elif sys.platform == "darwin":
+                subprocess.Popen(["open", url])
+            else:
+                subprocess.Popen(["xdg-open", url])
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to open preview: {e}")
+    # -------------------------------------------------------
 
     def create_date_input_fields(self, parent, row, label_text, attr_prefix, default_date):
         date_frame = Frame(parent)
@@ -603,26 +664,23 @@ class JSAInputGUI:
             
             messagebox.showerror("Error", f"Error saving file: {e}")
 
+    # --- [MODIFIED] Save PDF from in-memory bytes (no preview file copy) ---
     def save_pdf_as_file(self):
-        if not os.path.exists(self.generated_pdf_path):
+        if not self.current_pdf_bytes:
             messagebox.showwarning("Warning", "You must generate the PDF first.")
             return
 
-        file_name = os.path.basename(self.generated_pdf_path)
-        
         try:
             user_inputs = self.get_user_inputs()
-           
             if self.jsa_json:
                 pdf_filename = self._generate_json_filename(user_inputs, self.jsa_json).replace(".json", ".pdf")
             else:
-                pdf_filename = file_name.replace("preview_temp_output", datetime.datetime.now().strftime("%Y-%m-%d-%H%M%S"))
+                pdf_filename = datetime.datetime.now().strftime("%Y-%m-%d-%H%M%S") + ".pdf"
         except:
-            pdf_filename = file_name.replace("preview_temp_output", datetime.datetime.now().strftime("%Y-%m-%d-%H%M%S"))
+            pdf_filename = datetime.datetime.now().strftime("%Y-%m-%d-%H%M%S") + ".pdf"
 
         save_path = filedialog.asksaveasfilename(
             defaultextension=".pdf",
-  
             filetypes=[("PDF files", "*.pdf")],
             initialfile=pdf_filename,
             initialdir=self.pdf_save_dir
@@ -630,11 +688,12 @@ class JSAInputGUI:
         
         if save_path:
             try:
-                shutil.copy(self.generated_pdf_path, save_path)
-          
+                with open(save_path, "wb") as f:
+                    f.write(self.current_pdf_bytes)
                 messagebox.showinfo("Saved", f"PDF has been successfully saved as '{os.path.basename(save_path)}'.")
             except Exception as e:
                 messagebox.showerror("Error", f"Error saving PDF file: {e}")
+    # ---------------------------------------------------------------------
 
     # 수정: PDF를 재생성하고 여는 새 함수 구현
     def regenerate_pdf(self):
@@ -678,19 +737,21 @@ class JSAInputGUI:
             )
 
             if doc:
-                self.master.after(0, lambda: self.status_text.insert(tk.END, "📄 PDF regeneration successful. Rewriting preview file...\n"))
+                self.master.after(0, lambda: self.status_text.insert(tk.END, "📄 PDF regeneration successful. Building in-memory preview...\n"))
                 try:
-                    doc.save(self.generated_pdf_path, garbage=3, deflate=True) 
-                    doc.close()
-                    self.master.after(0, lambda: self.status_text.insert(tk.END, "💾 Preview file updated. Opening PDF...\n"))
-                    self.master.after(0, self._open_pdf_file) # 새로 생성된 PDF 열기
+                    try:
+                        pdf_bytes = doc.tobytes(garbage=3, deflate=True)
+                    except Exception:
+                        pdf_bytes = doc.write()
+
+                    self.current_pdf_bytes = pdf_bytes
+
+                    self._ensure_preview_server()
+                    self.master.after(0, lambda: self.status_text.insert(tk.END, "🌐 Opening in-memory PDF preview in browser...\n"))
+                    self.master.after(0, self._open_pdf_preview_in_browser)
                 except Exception as e:
-                    if "Permission denied" in str(e):
-                        self.master.after(0, lambda: messagebox.showwarning("File Error", "PDF preview file is already open.\nClose it and try again."))
-                        self.master.after(0, lambda: self.status_text.insert(tk.END, "❌ PDF rewrite failed: preview file is open.\n"))
-                    else:
-                        self.master.after(0, lambda e=e: messagebox.showerror("Error", f"Error occurred while rewriting PDF: {e}"))
-                        self.master.after(0, lambda e=e: self.status_text.insert(tk.END, f"❌ Error: {e}\n"))
+                    self.master.after(0, lambda e=e: messagebox.showerror("Error", f"Error occurred while building PDF preview: {e}"))
+                    self.master.after(0, lambda e=e: self.status_text.insert(tk.END, f"❌ Error: {e}\n"))
             else:
                 self.master.after(0, lambda: self.status_text.insert(tk.END, "❌ PDF document object is None.\n"))
 
@@ -785,23 +846,21 @@ class JSAInputGUI:
             )
 
             if doc:
-                self.master.after(0, lambda: self.status_text.insert(tk.END, "📄 PDF generation successful. Rewriting preview file...\n"))
+                self.master.after(0, lambda: self.status_text.insert(tk.END, "📄 PDF generation successful. Building in-memory preview...\n"))
                 try:
-                    # 💡 PDF 저장 오류(save to original must be incremental) 해결을 위해 옵션 추가
-                    doc.save(self.generated_pdf_path, garbage=3, deflate=True) 
-                    doc.close()
-      
-                    self.master.after(0, lambda: self.status_text.insert(tk.END, "💾 Preview file updated. Opening PDF...\n"))
-                    self.master.after(0, self._open_pdf_file) # 수정된 함수 이름 호출
+                    try:
+                        pdf_bytes = doc.tobytes(garbage=3, deflate=True)
+                    except Exception:
+                        pdf_bytes = doc.write()
+
+                    self.current_pdf_bytes = pdf_bytes
+
+                    self._ensure_preview_server()
+                    self.master.after(0, lambda: self.status_text.insert(tk.END, "🌐 Opening in-memory PDF preview in browser...\n"))
+                    self.master.after(0, self._open_pdf_preview_in_browser)
                 except Exception as e:
-                    if "Permission denied" in str(e):
-              
-                        self.master.after(0, lambda: messagebox.showwarning("File Error", "PDF preview file is already open.\nClose it and try again."))
-                        self.master.after(0, lambda: self.status_text.insert(tk.END, "❌ PDF rewrite failed: preview file is open.\n"))
-                    else:
-                       
-                        self.master.after(0, lambda e=e: messagebox.showerror("Error", f"Error occurred while rewriting PDF: {e}"))
-                        self.master.after(0, lambda e=e: self.status_text.insert(tk.END, f"❌ Error: {e}\n"))
+                    self.master.after(0, lambda e=e: messagebox.showerror("Error", f"Error occurred while building PDF preview: {e}"))
+                    self.master.after(0, lambda e=e: self.status_text.insert(tk.END, f"❌ Error: {e}\n"))
             else:
                 self.master.after(0, lambda: self.status_text.insert(tk.END, "❌ PDF document object is None.\n"))
 
