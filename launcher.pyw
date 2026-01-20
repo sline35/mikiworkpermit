@@ -13,17 +13,6 @@ FILES_TO_DOWNLOAD = [
 
 MAIN_APP_NAME = "main_app.pyw"
 
-def kill_existing_app():
-    """실행 중인 메인 앱을 강제로 종료하여 파일 잠금을 해제합니다."""
-    try:
-        # main_app.pyw를 실행 중인 모든 프로세스 종료 (방화벽 무관)
-        kill_cmd = 'wmic process where "commandline like \'%main_app.pyw%\'" delete'
-        subprocess.run(kill_cmd, shell=True, capture_output=True)
-        import time
-        time.sleep(1) # 종료될 때까지 잠시 대기
-    except:
-        pass
-
 def create_loading_window():
     root = tk.Tk()
     root.withdraw() 
@@ -90,6 +79,7 @@ def run_launcher():
 
 if __name__ == "__main__":
     run_launcher()
+
 
 
 
